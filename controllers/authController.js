@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import User from "../models/User.js";
+import User from "../models/userModel.js";
 import bcrypt from "bcrypt";
 import dotenv from "dotenv";
 import sendgridMail from "@sendgrid/mail";
@@ -115,4 +115,61 @@ const resetPassword = async (req, res) => {
     }
 };
 
-export { login, verify, sendOtp, verifyOtp, resetPassword };
+// Ensure to define sendDashboardNotification somewhere in your code, if not already done.
+const sendDashboardNotification = async ({ to, message }) => {
+  // Logic for sending notifications to the dashboard
+  // This can vary depending on your application's setup
+};
+
+const generateEmpId = (firstName, lastName) => {
+  const timestamp = new Date().getTime().toString();
+  const code = firstName.substring(0, 3).toUpperCase() + lastName.substring(0,3).toUpperCase() + timestamp.slice(-5);
+  return code;
+};
+
+const register = async (req, res) => {
+  try {
+    const {firstName, lastName, deptName, email, password, isAdmin } = req.body;
+    const userExists = await User.findOne({ email });
+    const newEmpId = generateEmpId(firstName, lastName);
+
+    if (userExists) {
+      return res.status(400).json({ success: false, error: "User already exists!" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = new User({firstName, lastName,empID:newEmpId, deptName, email, password: hashedPassword, role: "emp"});
+    await user.save();
+
+    const superAdmins = await User.find({ role: { $in: "superAdmin" }});
+
+    if (isAdmin) {
+      const mailOption = {
+        from: process.env.SENDER_MAIL,
+        subject: "New Admin Registration Request",
+        text: `New request for admin role created for ${email}. Please visit Dashboard to Review.`,
+      };
+
+      for(const superAdmin of superAdmins){
+        mailOption.to = superAdmin.email;
+        try {
+          await sendgridMail.send(mailOption);
+          await sendDashboardNotification({
+            to: superAdmin._id,
+            message: `New request for admin role created for ${email}.`
+          })
+        } catch (error) {
+          console.error("Error sending notification/email:", error);
+        }
+      }
+    }
+    return res.status(201).json({ success: true, message: "User registered successfully!" });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+
+
+
+export { login, verify, sendOtp, verifyOtp, resetPassword, register };
