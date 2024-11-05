@@ -89,30 +89,35 @@ const verifyOtp = async (req, res) => {
 };
 
 const resetPassword = async (req, res) => {
-    const { email, newPassword } = req.body;
-    console.log(newPassword);
-    
-    if (!email || !newPassword) {
-        return res.status(400).json({success: false, message: "Email and Password required!"});
-    };
+  const { email, newPassword } = req.body;
+  console.log(newPassword);
 
-    try {
-        const user = await User.findOne({email});
-        if (!user) {
-            return res.status(404).json({success: false, message: "User not found!"});
-        }
+  if (!email || !newPassword) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Email and Password required!" });
+  }
 
-        const hashPassword = await bcrypt.hash(newPassword, 10);
-
-        user.password = hashPassword;
-        await user.save();
-        console.log("password reset");
-        
-        return res.status(200).json({success:true, message: "Password reset successful!"});
-
-    } catch (error) {
-        return res.status(500).json({success: false, error: error.message})
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found!" });
     }
+
+    const hashPassword = await bcrypt.hash(newPassword, 10);
+
+    user.password = hashPassword;
+    await user.save();
+    console.log("password reset");
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Password reset successful!" });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
 };
 
 // Ensure to define sendDashboardNotification somewhere in your code, if not already done.
@@ -123,25 +128,39 @@ const sendDashboardNotification = async ({ to, message }) => {
 
 const generateEmpId = (firstName, lastName) => {
   const timestamp = new Date().getTime().toString();
-  const code = firstName.substring(0, 3).toUpperCase() + lastName.substring(0,3).toUpperCase() + timestamp.slice(-5);
+  const code =
+    firstName.substring(0, 3).toUpperCase() +
+    lastName.substring(0, 3).toUpperCase() +
+    timestamp.slice(-5);
   return code;
 };
 
 const register = async (req, res) => {
   try {
-    const {firstName, lastName, deptName, email, password, isAdmin } = req.body;
+    const { firstName, lastName, deptName, email, password, isAdmin } =
+      req.body;
     const userExists = await User.findOne({ email });
     const newEmpId = generateEmpId(firstName, lastName);
 
     if (userExists) {
-      return res.status(400).json({ success: false, error: "User already exists!" });
+      return res
+        .status(400)
+        .json({ success: false, error: "User already exists!" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new User({firstName, lastName,empID:newEmpId, deptName, email, password: hashedPassword, role: "emp"});
+    const user = new User({
+      firstName,
+      lastName,
+      empID: newEmpId,
+      deptName,
+      email,
+      password: hashedPassword,
+      role: "emp",
+    });
     await user.save();
 
-    const superAdmins = await User.find({ role: { $in: "superAdmin" }});
+    const superAdmins = await User.find({ role: { $in: "superAdmin" } });
 
     if (isAdmin) {
       const mailOption = {
@@ -150,26 +169,25 @@ const register = async (req, res) => {
         text: `New request for admin role created for ${email}. Please visit Dashboard to Review.`,
       };
 
-      for(const superAdmin of superAdmins){
+      for (const superAdmin of superAdmins) {
         mailOption.to = superAdmin.email;
         try {
           await sendgridMail.send(mailOption);
           await sendDashboardNotification({
             to: superAdmin._id,
-            message: `New request for admin role created for ${email}.`
-          })
+            message: `New request for admin role created for ${email}.`,
+          });
         } catch (error) {
           console.error("Error sending notification/email:", error);
         }
       }
     }
-    return res.status(201).json({ success: true, message: "User registered successfully!" });
+    return res
+      .status(201)
+      .json({ success: true, message: "User registered successfully!" });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
 };
-
-
-
 
 export { login, verify, sendOtp, verifyOtp, resetPassword, register };

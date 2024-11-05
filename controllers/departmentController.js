@@ -1,9 +1,10 @@
 import Department from "../models/departmentModel.js";
 
-
 const getDepartment = async (req, res) => {
   try {
-    const departments = await Department.find();  
+    const departments = await Department.find();
+    console.log(departments);
+    
     return res.status(200).json({ success: true, departments });
   } catch (error) {
     return res
@@ -12,6 +13,18 @@ const getDepartment = async (req, res) => {
   }
 };
 
+const getSpecificDepartment = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const department = await Department.findById(id);
+    
+    return res.status(200).json({ success: true, department });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ success: false, error: "getSpecificDepartment server error!" });
+  }
+};
 
 const generateDeptCode = (deptName) => {
   const timestamp = new Date().getTime().toString();
@@ -19,14 +32,13 @@ const generateDeptCode = (deptName) => {
   return code;
 };
 
-
-
 const addDepartment = async (req, res) => {
   try {
-    const { deptName, deptRemarks } = req.body;
+    const { deptName, deptRemarks, deptHead } = req.body;
     const deptCode = generateDeptCode(deptName);
     const newDept = new Department({
       deptName,
+      deptHead,
       deptRemarks,
       deptCode,
     });
@@ -38,4 +50,32 @@ const addDepartment = async (req, res) => {
   }
 };
 
-export { addDepartment, getDepartment };
+const updateDepartment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    const updatedDepartment = await Department.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+
+    if (!updatedDepartment) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Department not found!" });
+    }
+
+    return res
+      .status(200)
+      .json({ success: true, department: updatedDepartment });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export {
+  addDepartment,
+  getDepartment,
+  updateDepartment,
+  getSpecificDepartment,
+};

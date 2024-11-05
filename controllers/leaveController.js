@@ -33,9 +33,8 @@ const addLeave = async (req, res) => {
 const getLeaves = async (req, res) => {
   try {
     const { id } = req.params;
-    const employee = await User.findOne({ userId: id });
 
-    const leaves = await Leave.find({ userId: employee._id });
+    const leaves = await Leave.find({ userId: id });
     return res.status(200).json({ success: true, leaves });
   } catch (error) {
     console.log(error.message);
@@ -46,8 +45,31 @@ const getLeaves = async (req, res) => {
   }
 };
 
+const getSpecificLeave = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const leave = await Leave.findById(id);
+    return res.status(200).json({ success: true, leave });
+  } catch (error) {
+    console.log(error.message);
+
+    return res
+      .status(500)
+      .json({ success: false, error: "Server error while fetching" });
+  }
+};
+
 const sendLeaveMail = async (leave) => {
-  const admins = await User.find({ role: { $in: ["admin", "superAdmin"] } });
+  const requester = await User.findById(leave.userId);
+  const getReqDepartment = requester.deptName;
+
+  const admins = await User.find({
+    $or: [
+      { role: "admin", deptName: getReqDepartment },
+      { role: "superAdmin" },
+    ],
+  });
 
   const mailOption = {
     from: process.env.SENDER_MAIL,
@@ -70,4 +92,4 @@ const sendLeaveMail = async (leave) => {
   }
 };
 
-export { addLeave, getLeaves };
+export { addLeave, getLeaves, getSpecificLeave };
