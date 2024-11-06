@@ -6,6 +6,32 @@ import sendgridMail from "@sendgrid/mail";
 dotenv.config({ path: "./.env" });
 sendgridMail.setApiKey(process.env.SG_KEY);
 
+const getLeaveRequests = async (req, res) => {
+  try {
+    const { department } = req.params;
+    const usersInDept = await User.find({ deptName: department });
+
+    const userIds = usersInDept.map((user) => user._id);
+
+    if (userIds.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, error: "No users found for this department" });
+    }
+
+    const leaves = await Leave.find({ userId: { $in: userIds } });
+    return res.status(200).json({
+      success: true,
+      leaves,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: "Server error while fetching",
+    });
+  }
+};
+
 const addLeave = async (req, res) => {
   try {
     const { userId, leaveType, startDate, endDate, description } = req.body;
@@ -92,4 +118,74 @@ const sendLeaveMail = async (leave) => {
   }
 };
 
-export { addLeave, getLeaves, getSpecificLeave };
+const approveLeave = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { user, email } = req.body;
+
+    const leave = await Leave.findByIdAndUpdate(
+      id,
+      { status: "Approve" },
+      { new: true }
+    );
+
+    const mailOption = {
+      from: process.env.SENDER_MAIL,
+      to: email,
+      subject: "Your Leave request is Approved!",
+      text: `
+      Dear ${user}, \n\n
+      Your request for leave is approved by one of the Admins. Check details by visiting the dashboard.`,
+    };
+
+    await sendgridMail.send(mailOption);
+    console.log("Email sent successfully!");
+    
+    if (!leave) {
+      return res.status(404).json({ success: false, error: "Leave not found" });
+    }
+    res.status(200).json({ success: true, leave });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const rejectLeave = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { user, email } = req.body;
+    const leave = await Leave.findByIdAndUpdate(
+      id,
+      { status: "Rejected" },
+      { new: true }
+    );
+
+    const mailOption = {
+      from: process.env.SENDER_MAIL,
+      to: email,
+      subject: "Your Leave request is Rejected!",
+      text: `
+      Dear ${user}, \n\n
+      Your request for leave is rejected by one of the Admins. Check details by visiting the dashboard.`,
+    };
+
+    await sendgridMail.send(mailOption);
+    console.log("Email sent successfully!");
+
+    if (!leave) {
+      return res.status(404).json({ success: false, error: "Leave not found" });
+    }
+    res.status(200).json({ success: true, leave });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export {
+  addLeave,
+  getLeaves,
+  getSpecificLeave,
+  getLeaveRequests,
+  approveLeave,
+  rejectLeave,
+};

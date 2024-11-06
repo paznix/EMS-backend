@@ -3,8 +3,6 @@ import Department from "../models/departmentModel.js";
 const getDepartment = async (req, res) => {
   try {
     const departments = await Department.find();
-    console.log(departments);
-    
     return res.status(200).json({ success: true, departments });
   } catch (error) {
     return res
