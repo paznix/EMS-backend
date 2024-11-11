@@ -11,6 +11,8 @@ import authRouter from './routes/authRoutes.js';
 import leaveRouter from './routes/leaveRoutes.js';
 import departmentRouter from './routes/departmentRoutes.js';
 import userRouter from './routes/userRoutes.js';
+import requestsRouter from './routes/requestsRoutes.js';
+import notificationRouter from './routes/notificationRoutes.js';
 
 const app = express();
 app.use(cors());
@@ -18,6 +20,8 @@ app.use(express.json());
 app.use('/api/auth', authRouter);
 app.use('/api/leave', leaveRouter);
 app.use('/api/department', departmentRouter);
+app.use('/api/requests', requestsRouter);
+app.use('/api/notifications', notificationRouter);
 app.use('/api', userRouter);
 connectDB();
 

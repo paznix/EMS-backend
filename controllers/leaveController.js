@@ -1,5 +1,6 @@
 import Leave from "../models/leaveModel.js";
 import User from "../models/userModel.js";
+import Notification from "../models/notifcationModel.js";
 import dotenv from "dotenv";
 import sendgridMail from "@sendgrid/mail";
 
@@ -19,7 +20,7 @@ const getLeaveRequests = async (req, res) => {
         .json({ success: false, error: "No users found for this department" });
     }
 
-    const leaves = await Leave.find({ userId: { $in: userIds } });
+    const leaves = await Leave.find({ userId: { $in: userIds } }).sort({ appliedDate: -1 });
     return res.status(200).json({
       success: true,
       leaves,
@@ -32,10 +33,25 @@ const getLeaveRequests = async (req, res) => {
   }
 };
 
+const sendDashboardNotification = async ({ from, to, message }) => {
+  try {
+    const notification = new Notification({
+      from,
+      to,
+      message,
+    });
+    await notification.save();
+    console.log(" sent To : ", from);
+    
+  } catch (error) {
+    console.error("Error sending dashboard notification:", error);
+  }
+};
+
 const addLeave = async (req, res) => {
   try {
     const { userId, leaveType, startDate, endDate, description } = req.body;
-
+    
     const newLeave = new Leave({
       userId,
       leaveType,
@@ -45,6 +61,24 @@ const addLeave = async (req, res) => {
     });
     await sendLeaveMail(newLeave);
     await newLeave.save();
+
+    const admins = await User.find({
+      $or: [
+        { role: "admin", deptName: userId.deptName },
+        { role: "superAdmin" },
+      ],
+    });
+
+    const notificationMessage = "Requested for Leave.";
+  
+
+    for (const admin of admins) {
+      await sendDashboardNotification({
+        from: userId,
+        to: admin._id,
+        message: notificationMessage,
+      });
+    }
 
     return res.status(200).json({ success: true });
   } catch (error) {
@@ -60,7 +94,7 @@ const getLeaves = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const leaves = await Leave.find({ userId: id });
+    const leaves = await Leave.find({ userId: id }).sort({ appliedDate: -1 });
     return res.status(200).json({ success: true, leaves });
   } catch (error) {
     console.log(error.message);
@@ -68,6 +102,16 @@ const getLeaves = async (req, res) => {
     return res
       .status(500)
       .json({ success: false, error: "Server error while fetching" });
+  }
+};
+
+const getAllLeaves = async (req, res) => {
+  try {
+    const leaves = await Leave.find().sort({ appliedDate: -1 });
+    res.status(200).json({ success: true, leaves });
+  } catch (error) {
+    console.error("Error fetching leave requests:", error);
+    res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
@@ -125,7 +169,7 @@ const approveLeave = async (req, res) => {
 
     const leave = await Leave.findByIdAndUpdate(
       id,
-      { status: "Approve" },
+      { status: "Approved" },
       { new: true }
     );
 
@@ -140,7 +184,7 @@ const approveLeave = async (req, res) => {
 
     await sendgridMail.send(mailOption);
     console.log("Email sent successfully!");
-    
+
     if (!leave) {
       return res.status(404).json({ success: false, error: "Leave not found" });
     }
@@ -185,6 +229,7 @@ export {
   addLeave,
   getLeaves,
   getSpecificLeave,
+  getAllLeaves,
   getLeaveRequests,
   approveLeave,
   rejectLeave,

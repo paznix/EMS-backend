@@ -1,6 +1,6 @@
 import express from 'express';
 import authMiddleware from '../middleware/authMiddleware.js';
-import { addLeave, getLeaves, getSpecificLeave, getLeaveRequests, approveLeave, rejectLeave } from '../controllers/leaveController.js';
+import { addLeave, getLeaves, getSpecificLeave, getLeaveRequests, approveLeave, rejectLeave, getAllLeaves } from '../controllers/leaveController.js';
 
 const router = express.Router();
 
@@ -10,5 +10,6 @@ router.get('/view/:id', authMiddleware, getSpecificLeave);
 router.get('/department/:department', authMiddleware, getLeaveRequests);
 router.put('/:id/approve', approveLeave);
 router.put('/:id/reject', rejectLeave);
+router.get('/', authMiddleware, getAllLeaves);
 
 export default router;

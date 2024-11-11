@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import User from "../models/userModel.js";
+import Notification from "../models/notifcationModel.js";
 import bcrypt from "bcrypt";
 import dotenv from "dotenv";
 import sendgridMail from "@sendgrid/mail";
@@ -120,12 +121,6 @@ const resetPassword = async (req, res) => {
   }
 };
 
-// Ensure to define sendDashboardNotification somewhere in your code, if not already done.
-const sendDashboardNotification = async ({ to, message }) => {
-  // Logic for sending notifications to the dashboard
-  // This can vary depending on your application's setup
-};
-
 const generateEmpId = (firstName, lastName) => {
   const timestamp = new Date().getTime().toString();
   const code =
@@ -133,6 +128,19 @@ const generateEmpId = (firstName, lastName) => {
     lastName.substring(0, 3).toUpperCase() +
     timestamp.slice(-5);
   return code;
+};
+
+const sendDashboardNotification = async ({from, to, message }) => {
+  try {
+    const notification = new Notification({
+      from,
+      to,
+      message,
+    });
+    await notification.save();
+  } catch (error) {
+    console.error("Error sending dashboard notification:", error);
+  }
 };
 
 const register = async (req, res) => {
@@ -173,9 +181,11 @@ const register = async (req, res) => {
         mailOption.to = superAdmin.email;
         try {
           await sendgridMail.send(mailOption);
+          console.log(user);
           await sendDashboardNotification({
+            from: user._id,
             to: superAdmin._id,
-            message: `New request for admin role created for ${email}.`,
+            message: `New admin request by ${firstName} ${lastName}.`,
           });
         } catch (error) {
           console.error("Error sending notification/email:", error);
