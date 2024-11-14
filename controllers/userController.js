@@ -151,6 +151,50 @@ const approveAdminAccess = async (req, res) => {
   }
 };
 
+const updateUser = async (req, res) => {
+  try {
+    const { email } = req.body; // Only email and profileImage will be updated
+    const { id } = req.params;
+
+    // Prepare the update data
+    let updateData = { email, updatedAt: new Date() };
+
+    // If a new profile image is uploaded, include it in the updateData
+    if (req.file) {
+      updateData.profileImage = req.file.path;
+    }
+
+    // Find the user and update with the new data
+    const updatedUser = await User.findByIdAndUpdate(id, updateData, {
+      new: true,
+    });
+
+    // If user not found
+    if (!updatedUser) {
+      return res.status(404).json({
+        message: "User not found!",
+        success: false,
+      });
+    }
+
+    // Successfully updated the user
+    return res.status(200).json({
+      message: "User updated successfully!",
+      success: true,
+      data: updatedUser,
+    });
+  } catch (error) {
+    console.error("Error updating user:", error);
+    return res.status(500).json({
+      message: "Internal server error!",
+      success: false,
+      error: error.message,
+    });
+  }
+};
+
+export default updateUser;
+
 export {
   getUsers,
   getEmpUsers,
@@ -160,4 +204,5 @@ export {
   deleteUser,
   editEmployee,
   approveAdminAccess,
+  updateUser,
 };

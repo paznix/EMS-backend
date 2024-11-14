@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import User from "../models/userModel.js";
 import Notification from "../models/notifcationModel.js";
+import AdminRequest from "../models/adminReqModel.js";
 import bcrypt from "bcrypt";
 import dotenv from "dotenv";
 import sendgridMail from "@sendgrid/mail";
@@ -130,12 +131,13 @@ const generateEmpId = (firstName, lastName) => {
   return code;
 };
 
-const sendDashboardNotification = async ({from, to, message }) => {
+const sendDashboardNotification = async ({ from, to, message, notificationType }) => {
   try {
     const notification = new Notification({
       from,
       to,
       message,
+      notificationType,
     });
     await notification.save();
   } catch (error) {
@@ -171,6 +173,14 @@ const register = async (req, res) => {
     const superAdmins = await User.find({ role: { $in: "superAdmin" } });
 
     if (isAdmin) {
+      const adminRequest = new AdminRequest({
+        user: user._id,
+        status: "Pending",
+      });
+
+      await adminRequest.save();
+
+
       const mailOption = {
         from: process.env.SENDER_MAIL,
         subject: "New Admin Registration Request",
@@ -185,7 +195,8 @@ const register = async (req, res) => {
           await sendDashboardNotification({
             from: user._id,
             to: superAdmin._id,
-            message: `New admin request by ${firstName} ${lastName}.`,
+            message: `Requested for admin access.`,
+            notificationType: "adminReq",
           });
         } catch (error) {
           console.error("Error sending notification/email:", error);

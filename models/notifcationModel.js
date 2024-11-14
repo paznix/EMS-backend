@@ -1,4 +1,3 @@
-// notificationModel.js
 import mongoose from 'mongoose';
 
 const notificationSchema = new mongoose.Schema(
@@ -20,6 +19,10 @@ const notificationSchema = new mongoose.Schema(
     read: {
       type: Boolean,
       default: false,
+    },
+    notificationType: {
+      type: String,
+      required: true
     },
     createdAt: {
       type: Date,
