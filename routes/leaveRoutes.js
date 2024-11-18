@@ -8,8 +8,8 @@ router.post('/add', authMiddleware, addLeave);
 router.get('/:id', authMiddleware, getLeaves);
 router.get('/view/:id', authMiddleware, getSpecificLeave);
 router.get('/department/:department', authMiddleware, getLeaveRequests);
-router.put('/:id/approve', approveLeave);
-router.put('/:id/reject', rejectLeave);
+router.put('/:id/approve' ,authMiddleware, approveLeave);
+router.put('/:id/reject', authMiddleware, rejectLeave);
 router.get('/', authMiddleware, getAllLeaves);
 
 export default router;

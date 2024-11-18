@@ -35,13 +35,18 @@ const getLeaveRequests = async (req, res) => {
   }
 };
 
-const sendDashboardNotification = async ({ from, to, message, notificationType }) => {
+const sendDashboardNotification = async ({
+  from,
+  to,
+  message,
+  notificationType,
+}) => {
   try {
     const notification = new Notification({
       from,
       to,
       message,
-      notificationType
+      notificationType,
     });
     await notification.save();
     console.log(" sent To : ", from);
@@ -72,13 +77,14 @@ const addLeave = async (req, res) => {
     });
 
     const notificationMessage = "Requested for Leave.";
+    console.log(admins);
 
     for (const admin of admins) {
       await sendDashboardNotification({
         from: userId,
         to: admin._id,
         message: notificationMessage,
-        notificationType: "leaveReq"
+        notificationType: "leaveReq",
       });
     }
 
@@ -181,26 +187,15 @@ const approveLeave = async (req, res) => {
       { status: "Approved" },
       { new: true }
     );
+    console.log(process.env.SENDER_MAIL);
 
     const notificationMessage = `Your leave is approved.`;
-
-    const mailOption = {
-      from: process.env.SENDER_MAIL,
-      to: email,
-      subject: "Your Leave Request is Approved!",
-      text: `
-      Dear ${user},\n\n
-      Your request for leave has been approved by one of the admins. Please check the dashboard for further details.`,
-    };
-
-    await sendgridMail.send(mailOption);
-    console.log("Email sent successfully!");
 
     await sendDashboardNotification({
       from: fromUser,
       to: toUser,
       message: notificationMessage,
-      notificationType: "leaveRes"
+      notificationType: "leaveRes",
     });
 
     res.status(200).json({ success: true, leave: updatedLeave });
@@ -212,8 +207,7 @@ const approveLeave = async (req, res) => {
 
 const rejectLeave = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { user, email, fromUser } = req.body;
+    const { id, user, email, fromUser } = req.body;
 
     const leave = await Leave.findById(id);
     if (!leave) {
@@ -230,23 +224,11 @@ const rejectLeave = async (req, res) => {
 
     const notificationMessage = `Your leave is Rejected.`;
 
-    const mailOption = {
-      from: process.env.SENDER_MAIL,
-      to: email,
-      subject: "Your Leave Request is Rejected!",
-      text: `
-      Dear ${user},\n\n
-      Your request for leave has been rejected by one of the admins. Please check the dashboard for further details.`,
-    };
-
-    await sendgridMail.send(mailOption);
-    console.log("Email sent successfully!");
-
     await sendDashboardNotification({
       from: fromUser,
       to: toUser,
       message: notificationMessage,
-      notificationType: "leaveRes"
+      notificationType: "leaveRes",
     });
 
     res.status(200).json({ success: true, leave: updatedLeave });
