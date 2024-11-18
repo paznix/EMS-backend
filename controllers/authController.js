@@ -4,10 +4,9 @@ import Notification from "../models/notifcationModel.js";
 import AdminRequest from "../models/adminReqModel.js";
 import bcrypt from "bcrypt";
 import dotenv from "dotenv";
-import sendgridMail from "@sendgrid/mail";
+import { sendEmail } from "./mailer.js";
 
 dotenv.config({ path: "./.env" });
-sendgridMail.setApiKey(process.env.SG_KEY);
 
 const login = async (req, res) => {
   try {
@@ -57,15 +56,15 @@ const sendOtp = async (req, res) => {
   user.otpExpiry = otpExpiry;
   await user.save();
 
-  const mailOption = {
-    to: email,
-    from: process.env.SENDER_MAIL,
-    subject: "OTP for Password Reset",
-    text: `Your OTP is: ${otp}. The OTP is valid for next 10 minutes only. `,
-  };
-
   try {
-    await sendgridMail.send(mailOption);
+    await sendEmail({
+      from: `Leave MS`,
+      to: email,
+      subject: `OTP for Password Reset`,
+      html: `<h3>Your OTP is: ${otp}.</h3>
+              <p>The OTP is valid for next 10 minutes only.</p>
+      `,
+    });
     console.log(otp);
     return res
       .status(200)
@@ -131,7 +130,12 @@ const generateEmpId = (firstName, lastName) => {
   return code;
 };
 
-const sendDashboardNotification = async ({ from, to, message, notificationType }) => {
+const sendDashboardNotification = async ({
+  from,
+  to,
+  message,
+  notificationType,
+}) => {
   try {
     const notification = new Notification({
       from,
@@ -180,17 +184,16 @@ const register = async (req, res) => {
 
       await adminRequest.save();
 
-
-      const mailOption = {
-        from: process.env.SENDER_MAIL,
-        subject: "New Admin Registration Request",
-        text: `New request for admin role created for ${email}. Please visit Dashboard to Review.`,
-      };
-
       for (const superAdmin of superAdmins) {
-        mailOption.to = superAdmin.email;
         try {
-          await sendgridMail.send(mailOption);
+          await sendEmail({
+            from: `Leave MS`,
+            to: superAdmin.email,
+            subject: `New Admin Registration Request`,
+            html: `<h3>New request for admin role created for ${email}.</h3>
+                    <p>Please visit Dashboard to Review.</p>
+            `,
+          });
           console.log(user);
           await sendDashboardNotification({
             from: user._id,

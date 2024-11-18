@@ -2,10 +2,9 @@ import Leave from "../models/leaveModel.js";
 import User from "../models/userModel.js";
 import Notification from "../models/notifcationModel.js";
 import dotenv from "dotenv";
-import sendgridMail from "@sendgrid/mail";
+import { sendEmail } from "./mailer.js";
 
 dotenv.config({ path: "./.env" });
-sendgridMail.setApiKey(process.env.SG_KEY);
 
 const getLeaveRequests = async (req, res) => {
   try {
@@ -77,7 +76,6 @@ const addLeave = async (req, res) => {
     });
 
     const notificationMessage = "Requested for Leave.";
-    console.log(admins);
 
     for (const admin of admins) {
       await sendDashboardNotification({
@@ -149,20 +147,18 @@ const sendLeaveMail = async (leave) => {
     ],
   });
 
-  const mailOption = {
-    from: process.env.SENDER_MAIL,
-    subject: "New Request for Leave has been submitted!",
-    text: ` A New request for leave has been submitted: \n\n
-    Leave Type: ${leave.leaveType} \n
-    Start Date: ${leave.startDate} \n
-    End Date: ${leave.endDate} \n
-    Description: ${leave.description} \n\n`,
-  };
-
   for (const admin of admins) {
-    mailOption.to = admin.email;
     try {
-      await sendgridMail.send(mailOption);
+      await sendEmail({
+        from: `${requester.firstName} ${requester.lastName}`,
+        to: admin.email,
+        subject: "New Request for Leave has been submitted!",
+        html: `<h3> A New request for leave has been submitted: </h3>
+        <p>Leave Type: ${leave.leaveType} </p>
+        <p>Start Date: ${leave.startDate} </p>
+        <p>End Date: ${leave.endDate} </p>
+        <p>Description: ${leave.description} </p>`,
+      });
       console.log("Email sent to: ", admin.email);
     } catch (error) {
       console.error("Error sending email:", error);
@@ -181,15 +177,24 @@ const approveLeave = async (req, res) => {
     }
 
     const toUser = await User.findById(leave.userId);
+    const sender = await User.findById(fromUser);
 
     const updatedLeave = await Leave.findByIdAndUpdate(
       id,
-      { status: "Approved" },
+      { status: "Pending" },
       { new: true }
     );
-    console.log(process.env.SENDER_MAIL);
 
     const notificationMessage = `Your leave is approved.`;
+
+    await sendEmail({
+      from: `${sender.firstName} ${sender.lastName}`,
+      to: email,
+      subject: `Leave Approval`,
+      html: `<h3>Your Leave is Approved by ${sender.firstName} ${sender.lastName}.</h3>
+              <p>Visit Dashbord for more details.</p>
+      `,
+    });
 
     await sendDashboardNotification({
       from: fromUser,
@@ -223,6 +228,15 @@ const rejectLeave = async (req, res) => {
     );
 
     const notificationMessage = `Your leave is Rejected.`;
+
+    await sendEmail({
+      from: `${sender.firstName} ${sender.lastName}`,
+      to: email,
+      subject: `Leave Rejected`,
+      html: `<p>Your Leave is Rejected by ${sender.firstName} ${sender.lastName}.</p>
+              <p>Visit Dashbord for more details.</p>
+      `,
+    });
 
     await sendDashboardNotification({
       from: fromUser,
