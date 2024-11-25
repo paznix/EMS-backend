@@ -3,21 +3,26 @@ import bcrypt from "bcrypt";
 
 const getUsers = async (req, res) => {
   try {
+    const { role } = req.query;
+    const query = role ? { role } : {};
+
     const users = await User.find(
-      {},
+      query,
       "_id firstName lastName empID email deptName role"
     );
+
     return res.status(200).json({ success: true, users });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
 };
 
+
 const getEmpUsers = async (req, res) => {
   try {
     const users = await User.find(
       { role: { $in: ["emp", "admin"] } },
-      "_id firstName lastName empID email deptName role"
+      "_id firstName lastName empID email deptName role active"
     );
     return res.status(200).json({ success: true, users });
   } catch (error) {
@@ -45,23 +50,15 @@ const getUserData = async (req, res) => {
   }
 };
 
-const generateEmpId = (firstName, lastName) => {
-  const timestamp = new Date().getTime().toString();
-  const code =
-    firstName.substring(0, 3).toUpperCase() +
-    lastName.substring(0, 3).toUpperCase() +
-    timestamp.slice(-5);
-  return code;
-};
 
 const addEmployee = async (req, res) => {
   try {
-    const { firstName, lastName, deptName, email, password, isAdmin } =
+    const { firstName, lastName, deptName, email, password, empID, isAdmin } =
       req.body;
-    const userExists = await User.findOne({ email });
-    const newEmpId = generateEmpId(firstName, lastName);
+    const userExistsByEmail = await User.findOne({ email });
+    const userExistsByEmpID = await User.findOne({ empID });
 
-    if (userExists) {
+    if (userExistsByEmail || userExistsByEmpID) {
       return res
         .status(400)
         .json({ success: false, error: "User already exists!" });
@@ -71,9 +68,10 @@ const addEmployee = async (req, res) => {
     const user = new User({
       firstName,
       lastName,
-      empID: newEmpId,
+      empID,
       deptName,
       email,
+      active: true,
       password: hashedPassword,
       role: isAdmin ? "admin" : "emp",
     });
@@ -89,7 +87,7 @@ const addEmployee = async (req, res) => {
 const editEmployee = async (req, res) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName, deptName, email, role } = req.body;
+    const { firstName, lastName, deptName, email, role, active, empID } = req.body;
 
     const user = await User.findById(id);
     if (!user) {
@@ -100,7 +98,9 @@ const editEmployee = async (req, res) => {
     user.lastName = lastName || user.lastName;
     user.deptName = deptName || user.deptName;
     user.email = email || user.email;
+    user.empID = empID || user.empID;
     user.role = role;
+    user.active = active;
 
     await user.save();
 
@@ -153,23 +153,19 @@ const approveAdminAccess = async (req, res) => {
 
 const updateUser = async (req, res) => {
   try {
-    const { email } = req.body; // Only email and profileImage will be updated
+    const { email } = req.body; 
     const { id } = req.params;
 
-    // Prepare the update data
     let updateData = { email, updatedAt: new Date() };
-
-    // If a new profile image is uploaded, include it in the updateData
+  
     if (req.file) {
       updateData.profileImage = req.file.path;
     }
 
-    // Find the user and update with the new data
     const updatedUser = await User.findByIdAndUpdate(id, updateData, {
       new: true,
     });
 
-    // If user not found
     if (!updatedUser) {
       return res.status(404).json({
         message: "User not found!",
@@ -177,7 +173,6 @@ const updateUser = async (req, res) => {
       });
     }
 
-    // Successfully updated the user
     return res.status(200).json({
       message: "User updated successfully!",
       success: true,

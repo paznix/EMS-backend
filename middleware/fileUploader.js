@@ -12,25 +12,22 @@ cloudinary.config({
 // Create Cloudinary storage
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
-  params: {
-    folder: "uploads",
-    format: async (req, file) => {
-      const fileExtension = file.originalname.split(".").pop().toLowerCase();
-      if (fileExtension === "jpg" || fileExtension === "jpeg" || fileExtension === "png") {
-        return fileExtension;
-      } else {
-        return "jpg";
-      }
-    },
-    public_id: (req, file) => file.originalname.split(".")[0] + "",
-    transformation: [
-      {
-        width: 1200,
-        height: 1200,
-        crop: "crop",  
-        gravity: "auto" 
-      }
-    ]
+  params: async (req, file) => {
+    const fileExtension = file.originalname.split(".").pop().toLowerCase();
+
+    // Define resource type based on file type
+    let resourceType = "auto";
+    const allowedImageTypes = ["jpg", "jpeg", "png", "gif", "bmp", "svg"];
+    if (!allowedImageTypes.includes(fileExtension)) {
+      resourceType = "raw"; // Non-image files
+    }
+
+    return {
+      folder: "leaveDocuments",
+      resource_type: resourceType, // Set the resource type dynamically
+      format: fileExtension, // Maintain the original file format
+      public_id: `${Date.now()}-${file.originalname.split(".")[0]}`,
+    };
   },
 });
 

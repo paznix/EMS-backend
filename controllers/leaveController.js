@@ -57,6 +57,8 @@ const sendDashboardNotification = async ({
 const addLeave = async (req, res) => {
   try {
     const { userId, leaveType, startDate, endDate, description } = req.body;
+    const document = req.file ? req.file.path : null;
+    const user = await User.findById(userId);
 
     const newLeave = new Leave({
       userId,
@@ -64,13 +66,17 @@ const addLeave = async (req, res) => {
       startDate,
       endDate,
       description,
+      document
     });
     await sendLeaveMail(newLeave);
     await newLeave.save();
 
+    console.log(userId);
+    
+
     const admins = await User.find({
       $or: [
-        { role: "admin", deptName: userId.deptName },
+        { role: "admin", deptName: user.deptName },
         { role: "superAdmin" },
       ],
     });
@@ -181,7 +187,7 @@ const approveLeave = async (req, res) => {
 
     const updatedLeave = await Leave.findByIdAndUpdate(
       id,
-      { status: "Pending" },
+      { status: "Approved" },
       { new: true }
     );
 
@@ -212,7 +218,7 @@ const approveLeave = async (req, res) => {
 
 const rejectLeave = async (req, res) => {
   try {
-    const { id, user, email, fromUser } = req.body;
+    const { id, user, email, fromUser, reason } = req.body;
 
     const leave = await Leave.findById(id);
     if (!leave) {
@@ -220,10 +226,11 @@ const rejectLeave = async (req, res) => {
     }
 
     const toUser = await User.findById(leave.userId);
+    const sender = await User.findById(fromUser);
 
     const updatedLeave = await Leave.findByIdAndUpdate(
       id,
-      { status: "Rejected" },
+      { status: "Rejected", reason },
       { new: true }
     );
 

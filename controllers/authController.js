@@ -1,10 +1,10 @@
 import jwt from "jsonwebtoken";
 import User from "../models/userModel.js";
 import Notification from "../models/notifcationModel.js";
-import AdminRequest from "../models/adminReqModel.js";
 import bcrypt from "bcrypt";
 import dotenv from "dotenv";
 import { sendEmail } from "./mailer.js";
+import Registration from "../models/registrationsModel.js";
 
 dotenv.config({ path: "./.env" });
 
@@ -14,6 +14,12 @@ const login = async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ success: false, error: "User not FOUND!" });
+    }
+
+    if (!user.active) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Your account is inactive" });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
@@ -121,15 +127,6 @@ const resetPassword = async (req, res) => {
   }
 };
 
-const generateEmpId = (firstName, lastName) => {
-  const timestamp = new Date().getTime().toString();
-  const code =
-    firstName.substring(0, 3).toUpperCase() +
-    lastName.substring(0, 3).toUpperCase() +
-    timestamp.slice(-5);
-  return code;
-};
-
 const sendDashboardNotification = async ({
   from,
   to,
@@ -151,12 +148,11 @@ const sendDashboardNotification = async ({
 
 const register = async (req, res) => {
   try {
-    const { firstName, lastName, deptName, email, password, isAdmin } =
-      req.body;
-    const userExists = await User.findOne({ email });
-    const newEmpId = generateEmpId(firstName, lastName);
+    const { firstName, lastName, empID, email, password } = req.body;
+    const userExistsByEmail = await User.findOne({ email });
+    const userExistsByEmpID = await User.findOne({ empID });
 
-    if (userExists) {
+    if (userExistsByEmail || userExistsByEmpID) {
       return res
         .status(400)
         .json({ success: false, error: "User already exists!" });
@@ -166,52 +162,105 @@ const register = async (req, res) => {
     const user = new User({
       firstName,
       lastName,
-      empID: newEmpId,
-      deptName,
+      empID,
       email,
       password: hashedPassword,
       role: "emp",
+      active: false, // Set the account to inactive by default
     });
     await user.save();
 
-    const superAdmins = await User.find({ role: { $in: "superAdmin" } });
+    const regReguest = new Registration({
+      user: user._id,
+      interacted: false
+    });
 
-    if (isAdmin) {
-      const adminRequest = new AdminRequest({
-        user: user._id,
-        status: "Pending",
+    console.log(user._id);
+    
+
+    await regReguest.save();
+
+    const superAdmin = await User.findOne({ role: "superAdmin" });
+    if (superAdmin) {
+      await sendDashboardNotification({
+        from: user._id,
+        to: superAdmin._id,
+        message: `Account Registration.`,
+        notificationType: "registration",
       });
-
-      await adminRequest.save();
-
-      for (const superAdmin of superAdmins) {
-        try {
-          await sendEmail({
-            from: `Leave MS`,
-            to: superAdmin.email,
-            subject: `New Admin Registration Request`,
-            html: `<h3>New request for admin role created for ${email}.</h3>
-                    <p>Please visit Dashboard to Review.</p>
-            `,
-          });
-          console.log(user);
-          await sendDashboardNotification({
-            from: user._id,
-            to: superAdmin._id,
-            message: `Requested for admin access.`,
-            notificationType: "adminReq",
-          });
-        } catch (error) {
-          console.error("Error sending notification/email:", error);
-        }
-      }
+      await sendEmail({
+        from: "Leave MS",
+        to: superAdmin.email,
+        subject: "New Account Registration Request",
+        html: `<h3>New Account Registration</h3>
+             <p>A new user has registered and is awaiting approval.</p>
+             <p>Details:</p>
+             <ul>
+               <li>Name: ${firstName} ${lastName}</li>
+               <li>Employee ID: ${empID}</li>
+               <li>Email: ${email}</li>
+             </ul>
+             <p>Please review and approve the account in the admin dashboard.</p>`,
+      });
     }
-    return res
-      .status(201)
-      .json({ success: true, message: "User registered successfully!" });
+
+    return res.status(201).json({
+      success: true,
+      message:
+        "User registered successfully! Awaiting approval from superadmin.",
+    });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
 };
 
-export { login, verify, sendOtp, verifyOtp, resetPassword, register };
+const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found." });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Current password is incorrect." });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    await user.save();
+
+    await sendEmail({
+      from: `Leave MS`,
+      to: user.email,
+      subject: `Password Changed Successfully`,
+      html: `<h3>Hello ${user.firstName},</h3> 
+      <p>Your password has been successfully changed.</p> 
+      <p>Best regards,</p> <p>Leave MS Team</p>`,
+    });
+
+    res
+      .status(200)
+      .json({ success: true, message: "Password changed successfully." });
+  } catch (error) {
+    console.error("Error changing password:", error);
+    res.status(500).json({ success: false, message: "Server error." });
+  }
+};
+
+export {
+  login,
+  verify,
+  sendOtp,
+  verifyOtp,
+  resetPassword,
+  register,
+  changePassword,
+};

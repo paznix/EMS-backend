@@ -13,6 +13,7 @@ import departmentRouter from './routes/departmentRoutes.js';
 import userRouter from './routes/userRoutes.js';
 import adminReqRouter from './routes/adminReqRoutes.js'
 import notificationRouter from './routes/notificationRoutes.js';
+import regRouter from './routes/regRoutes.js';
 
 const app = express();
 app.use(cors());
@@ -21,6 +22,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/leave', leaveRouter);
 app.use('/api/department', departmentRouter);
 app.use('/api/requests', adminReqRouter);
+app.use('/api/registrations', regRouter);
 app.use('/api/notifications', notificationRouter);
 app.use('/api', userRouter);
 connectDB();

@@ -1,7 +1,7 @@
 import express from 'express';
 import { getDeptUserCount,getEmpUsers, getUserData, getUsers, addEmployee, deleteUser, editEmployee, approveAdminAccess, updateUser } from '../controllers/userController.js';
 import authMiddleware from '../middleware/authMiddleware.js'
-import cloudinaryFileUploader from '../middleware/fileUploader.js';
+import cloudinaryImageUploader from '../middleware/imageUploader.js';
 
 const router = express.Router();
 
@@ -14,6 +14,6 @@ router.post('/users/add', addEmployee);
 router.put('/users/emp/:id', editEmployee);
 router.post('/approveAdmin/:from', approveAdminAccess);
 
-router.put('/users/:id', cloudinaryFileUploader.single('profileImage'), updateUser);
+router.put('/users/:id', cloudinaryImageUploader.single('profileImage'), updateUser);
 
 export default router;

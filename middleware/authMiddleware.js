@@ -19,6 +19,10 @@ const verifyUser = async(req, res, next) => {
             return res.status(404).json({success:false, error: "User not found!"});
         }
 
+        if(!user.active){
+            return res.status(400).json({success:false, error: "User account isn't active!"});
+        }
+
         req.user = user;
         next();
     } catch (error) {

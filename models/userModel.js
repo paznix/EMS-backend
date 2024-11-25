@@ -13,7 +13,8 @@ const userSchema = new mongoose.Schema({
     default:
       "https://static.vecteezy.com/system/resources/thumbnails/009/292/244/small/default-avatar-icon-of-social-media-user-vector.jpg",
   },
-  deptName: { type: String, required: true },
+  deptName: { type: String },
+  active: { type: Boolean, required: true, default:false},
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
   otp: { type: String },

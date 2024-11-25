@@ -5,7 +5,6 @@ const getNotifications = async (req, res) => {
     const notifications = await Notification.find({ to: req.user._id }).populate('from', 'firstName lastName profileImage')
       .sort({ createdAt: -1 })
       .exec();
-    
     res.status(200).json({ notifications });
   } catch (error) {
     console.error('Error fetching notifications:', error);
